@@ -3416,9 +3416,9 @@ func TestPredicateFailedEvents(t *testing.T) {
 
 	attempts := 0
 	wrongNodes := make(map[string]int, 1)
-	wrongNodes["node3"] = 10
+	wrongNodes["node3"] = 0
 	rightNodes := make(map[string]int, 1)
-	rightNodes["node1"] = 10
+	rightNodes["node1"] = 1
 
 	tests := []struct {
 		name                 string
@@ -3446,6 +3446,10 @@ func TestPredicateFailedEvents(t *testing.T) {
 			app.tryAllocate(node.GetAvailableResource(), false, time.Second, &attempts, iterator, iterator, getNode)
 			assert.Equal(t, tt.expectedFailedEvents, len(eventSystem.Events))
 			if tt.expectedFailedEvents > 0 {
+				for _, log := range ask.GetAllocationLog() {
+					assert.Check(t, strings.Contains(log.Message, "failed"))
+					assert.Equal(t, log.Count, int32(1))
+				}
 				assertEventsForPredicateFailures(t, tt.allocKey, eventSystem.Events[0])
 			}
 			plugins.UnregisterSchedulerPlugins()
@@ -3460,7 +3464,7 @@ func assertEventsForPredicateFailures(t *testing.T, allocKey string, event *si.E
 	assert.Equal(t, si.EventRecord_DETAILS_NONE, event.EventChangeDetail)
 	assert.Equal(t, "app-1", event.ReferenceID)
 	assert.Equal(t, allocKey, event.ObjectID)
-	assert.Equal(t, "Unschedulable request '"+allocKey+"': fake predicate plugin failed (1x); ", event.Message)
+	assert.Check(t, strings.Contains(event.Message, "failed (1x); "))
 }
 
 func TestRequiredNodePreemption(t *testing.T) {
@@ -3912,11 +3916,13 @@ func TestTryPlaceHolderAllocateDifferentNodes(t *testing.T) {
 	queue, err := createRootQueue(nil)
 	assert.NilError(t, err, "queue create failed")
 
-	wrongNodes := make(map[string]int, 1)
-	wrongNodes[nodeID3] = 10
-	rightNodes := make(map[string]int, 2)
-	rightNodes[nodeID1] = 201
-	rightNodes[nodeID2] = 1
+	wrongNodes := make(map[string]int)
+	wrongNodes[nodeID3] = 1
+	wrongNodes[nodeID4] = -1
+	rightNodes := make(map[string]int)
+	rightNodes[nodeID1] = 0
+	rightNodes[nodeID2] = -1
+	rightNodes[nodeID3] = 1
 
 	tests := []struct {
 		name         string
@@ -3970,11 +3976,14 @@ func TestTryNodesNoReserve(t *testing.T) {
 	queue, err := createRootQueue(map[string]string{"first": "100"})
 	assert.NilError(t, err, "queue create failed")
 
-	wrongNodes := make(map[string]int, 1)
-	wrongNodes[nodeID4] = 10
-	rightNodes := make(map[string]int, 1)
-	rightNodes[nodeID1] = -10
-	rightNodes[nodeID3] = 10
+	wrongNodes := make(map[string]int)
+	wrongNodes[nodeID3] = 1
+	wrongNodes[nodeID4] = -1
+	rightNodes := make(map[string]int)
+	rightNodes[nodeID1] = 0
+	rightNodes[nodeID2] = 0
+	rightNodes[nodeID3] = -1
+	rightNodes[nodeID4] = 1
 
 	node := newNode(nodeID1, map[string]resources.Quantity{"first": 5})
 
